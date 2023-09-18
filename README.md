@@ -8,6 +8,10 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/github/downloads/52beijixing/cxstar-pdf-download/total" alt="DownloadNum">
+</p>
+
+<p align="center">
     <a href="https://github.com/52beijixing/cxstar-pdf-download">
         <img src="./images/description.png" alt="description">
     </a>

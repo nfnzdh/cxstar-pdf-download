@@ -85,6 +85,7 @@ class WebInfo(object):
         params = {
             'BookId': book_id,
             'FilePath': book_data["filePath"],
+            'amp;readtype': 'ebk',
             'PageNo': page_no,
             'borrowtoken': '',
             'typecode': 'ebook'

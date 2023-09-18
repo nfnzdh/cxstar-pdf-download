@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from pypdf import PdfWriter, PdfReader
 from multiprocessing.dummy import Pool
@@ -20,6 +21,12 @@ def getPagePdfInfo(url, ua):
 def pdfDownload(book_data, book_id, ua):
     # 书名
     book_name = book_data["title"]
+    # 移除不合法字符并替换为空格
+    valid_characters = re.sub(r'[^\w.-]', ' ', book_name)
+    # 去除多余的空格
+    sanitized_filename = re.sub(r'\s+', ' ', valid_characters)
+    # 去除两端空格
+    book_name = sanitized_filename.strip()
     # 页数
     total_page = int(book_data["totalPage"])
     # 目录数据
