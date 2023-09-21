@@ -71,7 +71,7 @@ class WebInfo(object):
         book_data["catalog"] = jsonPath(catalog)
 
         is_buy = self.getIsBuyOldPdf(book_id, book_data)
-        if is_buy != -1:
+        if is_buy == "1":
             return book_data
 
         print("当前用户权限所限，只能下载试看内容！")
