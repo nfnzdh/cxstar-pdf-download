@@ -39,8 +39,8 @@ def pdfDownload(book_data, book_id, ua):
     createFolder(book_id)
 
     print("正在下载单页pdf中,请等待...")
-    page_pdf_list = [(file_path + "&pageno=" + str(i), book_id + "/" + str(i) + ".pdf", ua) for i in
-                     range(total_page)]
+    page_pdf_list = [(file_path + "&pageno=" + str(i) + "&bookruid=" + book_id + "&readtype=pdf",
+                      book_id + "/" + str(i) + ".pdf", ua) for i in range(total_page)]
     pool = Pool()
     if not book_data.get("webPath"):
         pool.map(pagePdfDownload, page_pdf_list)
@@ -71,6 +71,8 @@ def pdfDownload(book_data, book_id, ua):
 # 下载单页pdf到指定位置
 def pagePdfDownload(page_pdf):
     url = page_pdf[0]
+    encrypt_data = createVerificationData()
+    url = url + "&nonce=" + encrypt_data["nonce"] + "&stime=" + encrypt_data["stime"] + "&sign=" + encrypt_data["sign"]
     file_name = page_pdf[1]
     ua = page_pdf[2]
     temp = getPagePdfInfo(url, ua)
@@ -115,17 +117,18 @@ def addBookMark(file_name, catalog):
 
     for i in range(len(catalog)):
         catalog_data = catalog[i]
-        bookmark = pdf_writer.add_outline_item(catalog_data["title"], int(catalog_data["page"])-1)
+        bookmark = pdf_writer.add_outline_item(catalog_data["title"], int(catalog_data["page"]) - 1)
         children = catalog_data.get("children", [])
 
         for j in range(len(children)):
             bookdata2 = children[j]
-            bookmark2 = pdf_writer.add_outline_item(bookdata2["title"], int(bookdata2["page"])-1, parent=bookmark)
+            bookmark2 = pdf_writer.add_outline_item(bookdata2["title"], int(bookdata2["page"]) - 1, parent=bookmark)
             sub_children = bookdata2.get("children", [])
 
             for k in range(len(sub_children)):
                 bookdata3 = sub_children[k]
-                bookmark3 = pdf_writer.add_outline_item(bookdata3["title"], int(bookdata3["page"]) - 1, parent=bookmark2)
+                bookmark3 = pdf_writer.add_outline_item(bookdata3["title"], int(bookdata3["page"]) - 1,
+                                                        parent=bookmark2)
                 grand_children = bookdata3.get("children", [])
 
                 for z in range(len(grand_children)):
