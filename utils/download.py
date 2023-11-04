@@ -1,5 +1,6 @@
 import os
 import re
+import gc
 import requests
 from pypdf import PdfWriter, PdfReader
 from multiprocessing.dummy import Pool
@@ -35,8 +36,9 @@ def pdfDownload(book_data, book_id, ua):
     file_path = book_data["filePath"]
 
     pdf_name = book_name + ".pdf"
-    merger = PdfWriter()
-    createFolder(book_id)
+    pdf_writer = PdfWriter()
+    if not os.path.exists(book_id):
+        createFolder(book_id)
 
     print("正在下载单页pdf中,请等待...")
     page_pdf_list = [(file_path + "&pageno=" + str(i) + "&bookruid=" + book_id + "&readtype=pdf",
@@ -52,17 +54,25 @@ def pdfDownload(book_data, book_id, ua):
     print("正在合并所有pdf中...")
     for i in range(total_page):
         temp_file_name = book_id + "/" + str(i) + ".pdf"
-        merger.append(temp_file_name)
+        with open(temp_file_name, 'rb+') as temp_pdf_file:
+            pdf_reader = PdfReader(temp_pdf_file)
+            total_pages = len(pdf_reader.pages)
+            for j in range(total_pages):
+                pdf_writer.add_page(pdf_reader.pages[j])
 
-    merger.write(pdf_name)
-    merger.close()
+    print("正在为书籍增加书签中...")
+    add_bookmarks(pdf_writer, catalog)
+
+    with open(pdf_name, "wb") as output_pdf:
+        pdf_writer.write(output_pdf)
+
+    pdf_writer.close()
+    del pdf_writer
+    gc.collect()
 
     # 删除缓存的文件及目录
     print("正在删除临时文件及目录...")
     deleteFolderAndFile(book_id)
-
-    print("正在为书籍增加书签中...")
-    addBookMark(pdf_name, catalog)
 
     current_path = os.getcwd()
     print("下载完毕，书籍位置：" + current_path + "\\" + pdf_name)
@@ -75,10 +85,11 @@ def pagePdfDownload(page_pdf):
     url = url + "&nonce=" + encrypt_data["nonce"] + "&stime=" + encrypt_data["stime"] + "&sign=" + encrypt_data["sign"]
     file_name = page_pdf[1]
     ua = page_pdf[2]
-    temp = getPagePdfInfo(url, ua)
-    temp_file_name = file_name
-    with open(temp_file_name, 'wb') as temp_file:
-        temp_file.write(temp)
+
+    if not os.path.exists(file_name):
+        temp = getPagePdfInfo(url, ua)
+        with open(file_name, 'wb') as temp_file:
+            temp_file.write(temp)
 
 
 # 将图片保存为pdf并下载
@@ -87,11 +98,17 @@ def saveImagePdf(page_pdf):
     url = f'{page_pdf[0]}&nonce={verification["nonce"]}&stime={verification["stime"]}&sign={verification["sign"]}'
     file_name = page_pdf[1]
     ua = page_pdf[2]
-    temp = getPagePdfInfo(url, ua)
     temp_file_name = file_name.split(".")[0] + ".png"
 
-    with open(temp_file_name, "wb") as f:
-        f.write(temp)
+    # 如果存在该pdf文件
+    if os.path.exists(file_name):
+        return
+
+    # 如果不存在该png文件
+    if not os.path.exists(temp_file_name):
+        temp = getPagePdfInfo(url, ua)
+        with open(temp_file_name, "wb") as f:
+            f.write(temp)
 
     # 将图片转换为PDF
     image = Image.open(temp_file_name)
@@ -103,42 +120,11 @@ def saveImagePdf(page_pdf):
     pdf.save()
 
 
-# pdf增加目录列表
-def addBookMark(file_name, catalog):
-    pdf_file = open(file_name, 'rb')
-    # 创建一个PdfFileReader对象
-    pdf_reader = PdfReader(pdf_file)
-    pdf_writer = PdfWriter()
-
-    # 添加一页到新PDF
-    total_pages = len(pdf_reader.pages)
-    for i in range(total_pages):
-        pdf_writer.add_page(pdf_reader.pages[i])
-
-    for i in range(len(catalog)):
-        catalog_data = catalog[i]
-        bookmark = pdf_writer.add_outline_item(catalog_data["title"], int(catalog_data["page"]) - 1)
-        children = catalog_data.get("children", [])
-
-        for j in range(len(children)):
-            bookdata2 = children[j]
-            bookmark2 = pdf_writer.add_outline_item(bookdata2["title"], int(bookdata2["page"]) - 1, parent=bookmark)
-            sub_children = bookdata2.get("children", [])
-
-            for k in range(len(sub_children)):
-                bookdata3 = sub_children[k]
-                bookmark3 = pdf_writer.add_outline_item(bookdata3["title"], int(bookdata3["page"]) - 1,
-                                                        parent=bookmark2)
-                grand_children = bookdata3.get("children", [])
-
-                for z in range(len(grand_children)):
-                    bookdata4 = grand_children[z]
-                    pdf_writer.add_outline_item(bookdata4["title"], int(bookdata4["page"]) - 1, parent=bookmark3)
-
-    # 创建一个新的PDF文件并保存
-    output_pdf_file = open(file_name, 'wb')
-    pdf_writer.write(output_pdf_file)
-
-    # 关闭文件
-    pdf_file.close()
-    output_pdf_file.close()
+# 增加书籍目录
+def add_bookmarks(pdf_writer, bookmarks, parent=None):
+    for bookmark_data in bookmarks:
+        title = bookmark_data["title"]
+        page = int(bookmark_data["page"]) - 1
+        bookmark = pdf_writer.add_outline_item(title, page, parent=parent)
+        children = bookmark_data.get("children", [])
+        add_bookmarks(pdf_writer, children, parent=bookmark)
