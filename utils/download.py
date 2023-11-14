@@ -57,7 +57,7 @@ def pdfDownload(book_data, book_id, ua):
         with open(temp_file_name, 'rb+') as temp_pdf_file:
             pdf_reader = PdfReader(temp_pdf_file)
             total_pages = len(pdf_reader.pages)
-            if i != total_page - 1:
+            if i != total_page - 1 and total_pages != 1:
                 total_pages = total_pages - 1
             for j in range(total_pages):
                 pdf_writer.add_page(pdf_reader.pages[j])
